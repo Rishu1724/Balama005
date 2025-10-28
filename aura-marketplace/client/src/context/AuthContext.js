@@ -13,8 +13,15 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((user) => {
+    const unsubscribe = onAuthStateChange(async (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        // Determine user type based on URL or other logic
+        // For now, we'll set a default, but this should be determined from Firestore
+        setUserType('buyer'); // This will be updated based on actual user data
+      }
+      
       setLoading(false);
     });
 

@@ -6,6 +6,9 @@ const SignupPage = () => {
   const [userType, setUserType] = useState('buyer');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +27,16 @@ const SignupPage = () => {
     setError('');
     
     try {
-      const user = await registerUser(email, password);
+      // Prepare user data based on user type
+      let userData = { name, email, phone };
+      
+      if (userType === 'seller') {
+        userData = { ...userData, address, companyName };
+      } else {
+        userData = { ...userData, address };
+      }
+      
+      const user = await registerUser(email, password, userData, userType);
       console.log('User registered:', user);
       
       // Navigate based on user type
@@ -115,6 +127,53 @@ const SignupPage = () => {
                 placeholder="Email address"
               />
             </div>
+            <div>
+              <label htmlFor="phone" className="sr-only">
+                Phone Number
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Phone Number"
+              />
+            </div>
+            <div>
+              <label htmlFor="address" className="sr-only">
+                Address
+              </label>
+              <input
+                id="address"
+                name="address"
+                type="text"
+                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Address"
+              />
+            </div>
+            {userType === 'seller' && (
+              <div>
+                <label htmlFor="company" className="sr-only">
+                  Company Name
+                </label>
+                <input
+                  id="company"
+                  name="company"
+                  type="text"
+                  required={userType === 'seller'}
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Company Name"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="password" className="sr-only">
                 Password

@@ -1,10 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../../services/authService';
+import { subscribeToUserProfile, subscribeToProducts } from '../../services/firestoreService';
+import { useAuth } from '../../context/AuthContext';
 
 const BuyerDashboard = () => {
   const [activeTab, setActiveTab] = useState('browse');
+  const [userProfile, setUserProfile] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    // Subscribe to user profile updates
+    const unsubscribeProfile = subscribeToUserProfile(
+      currentUser.uid, 
+      'buyers', 
+      (profile) => {
+        setUserProfile(profile);
+      }
+    );
+
+    // Subscribe to products updates
+    const unsubscribeProducts = subscribeToProducts((products) => {
+      setProducts(products);
+      setFilteredProducts(products);
+      setLoading(false);
+    });
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeProfile();
+      unsubscribeProducts();
+    };
+  }, [currentUser, navigate]);
+
+  // Filter products based on search term and category
+  useEffect(() => {
+    let result = products;
+    
+    // Filter by search term
+    if (searchTerm) {
+      result = result.filter(product => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Filter by category
+    if (selectedCategory !== 'All') {
+      result = result.filter(product => product.category === selectedCategory);
+    }
+    
+    setFilteredProducts(result);
+  }, [searchTerm, selectedCategory, products]);
 
   const handleLogout = async () => {
     try {
@@ -15,50 +73,19 @@ const BuyerDashboard = () => {
     }
   };
 
-  // Sample data
-  const products = [
-    {
-      id: 1,
-      name: 'Wireless Bluetooth Headphones',
-      price: 89.99,
-      category: 'Electronics',
-      image: 'https://via.placeholder.com/150',
-      rating: 4.5,
-    },
-    {
-      id: 2,
-      name: 'Smart Fitness Tracker',
-      price: 49.99,
-      category: 'Wearables',
-      image: 'https://via.placeholder.com/150',
-      rating: 4.2,
-    },
-    {
-      id: 3,
-      name: 'Coffee Maker',
-      price: 79.99,
-      category: 'Home Appliances',
-      image: 'https://via.placeholder.com/150',
-      rating: 4.7,
-    },
-  ];
+  // Get unique categories for filter dropdown
+  const categories = ['All', ...new Set(products.map(product => product.category))];
 
-  const orders = [
-    {
-      id: 'ORD-001',
-      product: 'Wireless Bluetooth Headphones',
-      date: '2023-05-15',
-      status: 'Delivered',
-      total: 89.99,
-    },
-    {
-      id: 'ORD-002',
-      product: 'Smart Fitness Tracker',
-      date: '2023-05-10',
-      status: 'Shipped',
-      total: 49.99,
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -82,6 +109,30 @@ const BuyerDashboard = () => {
           </div>
         </div>
       </header>
+
+      {/* User Profile Info */}
+      {userProfile && (
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Welcome, {userProfile.name}
+                </h2>
+                <p className="text-gray-600">{userProfile.email}</p>
+                <p className="text-gray-600">{userProfile.phone}</p>
+                <p className="text-gray-600">{userProfile.address}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Member since</p>
+                <p className="font-medium">
+                  {userProfile.createdAt?.toDate?.().toLocaleDateString() || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Stats */}
@@ -149,89 +200,81 @@ const BuyerDashboard = () => {
                 <input
                   type="text"
                   placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg"
                 />
-                <select className="px-4 py-2 border border-gray-300 rounded-lg">
-                  <option>All Categories</option>
-                  <option>Electronics</option>
-                  <option>Fashion</option>
-                  <option>Home & Garden</option>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  {categories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-lg shadow overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-4">
-                    <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                    <p className="text-gray-500 text-sm">{product.category}</p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-lg font-bold text-gray-900">${product.price}</span>
-                      <div className="flex items-center">
-                        <span className="text-yellow-500">★</span>
-                        <span className="text-gray-600 ml-1">{product.rating}</span>
+            {filteredProducts.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+                <p className="text-gray-500">
+                  {searchTerm || selectedCategory !== 'All' 
+                    ? 'Try adjusting your search or filter criteria' 
+                    : 'No products available at the moment'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <div key={product.id} className="bg-white rounded-lg shadow overflow-hidden">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-48 flex items-center justify-center">
+                        <span className="text-gray-500">No Image</span>
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
+                      <p className="text-gray-500 text-sm">{product.category}</p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-lg font-bold text-gray-900">${product.price}</span>
+                        <div className="flex items-center">
+                          <span className="text-yellow-500">★</span>
+                          <span className="text-gray-600 ml-1">4.5</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-gray-600 text-sm line-clamp-2">
+                        {product.description}
+                      </p>
+                      <div className="mt-4 flex space-x-2">
+                        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">
+                          View Details
+                        </button>
+                        <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 p-2 rounded-lg">
+                          ♡
+                        </button>
                       </div>
                     </div>
-                    <div className="mt-4 flex space-x-2">
-                      <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">
-                        View Details
-                      </button>
-                      <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 p-2 rounded-lg">
-                        ♡
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'orders' && (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-6">My Orders</h2>
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <li key={order.id}>
-                    <div className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-blue-600 truncate">
-                          Order #{order.id}
-                        </p>
-                        <div className="ml-2 flex-shrink-0 flex">
-                          <p
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              order.status === 'Delivered'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
-                            {order.status}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-2 sm:flex sm:justify-between">
-                        <div className="sm:flex">
-                          <p className="flex items-center text-sm text-gray-500">
-                            {order.product}
-                          </p>
-                        </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                          <p>${order.total}</p>
-                          <p className="ml-4">{order.date}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
+              <p className="text-gray-500">Your orders will appear here</p>
             </div>
           </div>
         )}

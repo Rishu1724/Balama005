@@ -1,10 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../../services/authService';
+import { subscribeToUserProfile, subscribeToUserProducts } from '../../services/firestoreService';
+import { useAuth } from '../../context/AuthContext';
+import ProductForm from '../../components/ProductForm';
 
 const SellerDashboard = () => {
   const [activeTab, setActiveTab] = useState('products');
+  const [userProfile, setUserProfile] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddProductForm, setShowAddProductForm] = useState(false);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    // Subscribe to user profile updates
+    const unsubscribeProfile = subscribeToUserProfile(
+      currentUser.uid, 
+      'sellers', 
+      (profile) => {
+        setUserProfile(profile);
+      }
+    );
+
+    // Subscribe to user's products
+    const unsubscribeProducts = subscribeToUserProducts(
+      currentUser.uid, 
+      (products) => {
+        setProducts(products);
+        setLoading(false);
+      }
+    );
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeProfile();
+      unsubscribeProducts();
+    };
+  }, [currentUser, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -15,46 +54,23 @@ const SellerDashboard = () => {
     }
   };
 
-  // Sample data
-  const products = [
-    {
-      id: 1,
-      name: 'Wireless Bluetooth Headphones',
-      price: 89.99,
-      stock: 15,
-      category: 'Electronics',
-      sales: 24,
-      revenue: 2159.76,
-    },
-    {
-      id: 2,
-      name: 'Smart Fitness Tracker',
-      price: 49.99,
-      stock: 8,
-      category: 'Wearables',
-      sales: 12,
-      revenue: 599.88,
-    },
-  ];
+  const handleProductAdded = (newProduct) => {
+    // Add the new product to the local state
+    setProducts(prevProducts => [newProduct, ...prevProducts]);
+    // Hide the form
+    setShowAddProductForm(false);
+  };
 
-  const orders = [
-    {
-      id: 'ORD-001',
-      customer: 'John Doe',
-      product: 'Wireless Bluetooth Headphones',
-      date: '2023-05-15',
-      status: 'Shipped',
-      amount: 89.99,
-    },
-    {
-      id: 'ORD-002',
-      customer: 'Jane Smith',
-      product: 'Smart Fitness Tracker',
-      date: '2023-05-10',
-      status: 'Processing',
-      amount: 49.99,
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,8 +79,11 @@ const SellerDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Seller Dashboard</h1>
           <div className="flex items-center space-x-4">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-              Add Product
+            <button 
+              onClick={() => setShowAddProductForm(!showAddProductForm)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              {showAddProductForm ? 'Cancel' : 'Add Product'}
             </button>
             <button 
               onClick={handleLogout}
@@ -79,12 +98,46 @@ const SellerDashboard = () => {
         </div>
       </header>
 
+      {/* User Profile Info */}
+      {userProfile && (
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Welcome, {userProfile.name}
+                </h2>
+                <p className="text-gray-600">{userProfile.email}</p>
+                <p className="text-gray-600">{userProfile.phone}</p>
+                <p className="text-gray-600">{userProfile.address}</p>
+                {userProfile.companyName && (
+                  <p className="text-gray-600">Company: {userProfile.companyName}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Member since</p>
+                <p className="font-medium">
+                  {userProfile.createdAt?.toDate?.().toLocaleDateString() || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        {/* Add Product Form */}
+        {showAddProductForm && (
+          <div className="mb-8">
+            <ProductForm onProductAdded={handleProductAdded} />
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-medium text-gray-900">Total Products</h3>
-            <p className="text-3xl font-bold text-blue-600">24</p>
+            <p className="text-3xl font-bold text-blue-600">{products.length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-medium text-gray-900">Total Sales</h3>
@@ -141,109 +194,89 @@ const SellerDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">My Products</h2>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+              <button 
+                onClick={() => setShowAddProductForm(!showAddProductForm)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+              >
                 Add New Product
               </button>
             </div>
 
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {products.map((product) => (
-                  <li key={product.id}>
-                    <div className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-md"></div>
-                          <div className="ml-4">
-                            <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                            <p className="text-gray-500 text-sm">{product.category}</p>
+            {products.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No products yet</h3>
+                <p className="text-gray-500 mb-4">Add your first product to get started</p>
+                <button 
+                  onClick={() => setShowAddProductForm(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Add New Product
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200">
+                  {products.map((product) => (
+                    <li key={product.id}>
+                      <div className="px-4 py-4 sm:px-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            {product.imageUrl ? (
+                              <img 
+                                src={product.imageUrl} 
+                                alt={product.name} 
+                                className="flex-shrink-0 h-12 w-12 object-cover rounded-md"
+                              />
+                            ) : (
+                              <div className="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-md"></div>
+                            )}
+                            <div className="ml-4">
+                              <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
+                              <p className="text-gray-500 text-sm">{product.category}</p>
+                            </div>
+                          </div>
+                          <div className="flex space-x-4">
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-gray-900">${product.price}</p>
+                              <p className="text-gray-500 text-sm">Price</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-gray-900">In Stock</p>
+                              <p className="text-gray-500 text-sm">Inventory</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-600">0</p>
+                              <p className="text-gray-500 text-sm">Sales</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-600">$0.00</p>
+                              <p className="text-gray-500 text-sm">Revenue</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex space-x-4">
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900">${product.price}</p>
-                            <p className="text-gray-500 text-sm">Price</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900">{product.stock}</p>
-                            <p className="text-gray-500 text-sm">In Stock</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900">{product.sales}</p>
-                            <p className="text-gray-500 text-sm">Sales</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-green-600">${product.revenue}</p>
-                            <p className="text-gray-500 text-sm">Revenue</p>
-                          </div>
+                        <div className="mt-4 flex justify-end space-x-2">
+                          <button className="text-blue-600 hover:text-blue-900">
+                            Edit
+                          </button>
+                          <button className="text-red-600 hover:text-red-900">
+                            Delete
+                          </button>
                         </div>
                       </div>
-                      <div className="mt-4 flex justify-end space-x-2">
-                        <button className="text-blue-600 hover:text-blue-900">
-                          Edit
-                        </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'orders' && (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Orders</h2>
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <li key={order.id}>
-                    <div className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-blue-600 truncate">
-                          Order #{order.id}
-                        </p>
-                        <div className="ml-2 flex-shrink-0 flex">
-                          <p
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              order.status === 'Shipped'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
-                            {order.status}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-2 sm:flex sm:justify-between">
-                        <div className="sm:flex">
-                          <p className="flex items-center text-sm text-gray-500">
-                            Customer: {order.customer}
-                          </p>
-                          <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                            Product: {order.product}
-                          </p>
-                        </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                          <p>${order.amount}</p>
-                          <p className="ml-4">{order.date}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex justify-end space-x-2">
-                        <button className="text-blue-600 hover:text-blue-900">
-                          View Details
-                        </button>
-                        <button className="text-green-600 hover:text-green-900">
-                          Mark as Shipped
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
+              <p className="text-gray-500">Orders from customers will appear here</p>
             </div>
           </div>
         )}

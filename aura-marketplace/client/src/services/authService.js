@@ -5,12 +5,21 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
+import { createUserProfile } from './firestoreService';
 
 // Register a new user with email and password
-export const registerUser = async (email, password) => {
+export const registerUser = async (email, password, userData, userType) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
+    const user = userCredential.user;
+    
+    // Create user profile in Firestore
+    await createUserProfile(user.uid, {
+      email: user.email,
+      ...userData
+    }, userType);
+    
+    return user;
   } catch (error) {
     throw error;
   }
