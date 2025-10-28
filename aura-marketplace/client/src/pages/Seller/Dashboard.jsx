@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { logoutUser } from '../../services/authService';
 
 const SellerDashboard = () => {
   const [activeTab, setActiveTab] = useState('products');
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   // Sample data
   const products = [
@@ -54,6 +65,12 @@ const SellerDashboard = () => {
           <div className="flex items-center space-x-4">
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
               Add Product
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+            >
+              Logout
             </button>
             <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">
               Profile
