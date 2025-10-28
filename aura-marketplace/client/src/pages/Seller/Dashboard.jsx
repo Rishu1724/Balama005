@@ -225,14 +225,17 @@ const SellerDashboard = () => {
                               <img 
                                 src={product.imageUrl} 
                                 alt={product.name} 
-                                className="flex-shrink-0 h-12 w-12 object-cover rounded-md"
+                                className="flex-shrink-0 h-16 w-16 object-cover rounded-md"
                               />
                             ) : (
-                              <div className="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-md"></div>
+                              <div className="flex-shrink-0 h-16 w-16 bg-gray-200 rounded-md flex items-center justify-center">
+                                <span className="text-gray-500 text-xs">No Image</span>
+                              </div>
                             )}
                             <div className="ml-4">
                               <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                              <p className="text-gray-500 text-sm">{product.category}</p>
+                              <p className="text-gray-500 text-sm">{product.category} • {product.condition}</p>
+                              <p className="text-gray-500 text-sm">{product.brand || 'No brand'}</p>
                             </div>
                           </div>
                           <div className="flex space-x-4">
@@ -253,6 +256,9 @@ const SellerDashboard = () => {
                               <p className="text-gray-500 text-sm">Revenue</p>
                             </div>
                           </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-gray-600 text-sm line-clamp-2">{product.description}</p>
                         </div>
                         <div className="mt-4 flex justify-end space-x-2">
                           <button className="text-blue-600 hover:text-blue-900">

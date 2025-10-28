@@ -1,4 +1,4 @@
-import { db } from '../firebase/firebaseConfig';
+import { db, storage } from '../firebase/firebaseConfig';
 import { 
   collection, 
   doc, 
@@ -13,6 +13,11 @@ import {
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
+} from 'firebase/storage';
 
 // User Profile Management
 export const createUserProfile = async (userId, userData, userType) => {
@@ -61,20 +66,32 @@ export const updateUserProfile = async (userId, userData, userType) => {
 };
 
 // Product Management
-export const createProduct = async (productData, sellerId) => {
+export const createProduct = async (productData, sellerId, imageFile = null) => {
   try {
+    let imageUrl = productData.imageUrl || null;
+    
+    // Upload image if provided
+    if (imageFile) {
+      const imageRef = ref(storage, `products/${sellerId}/${Date.now()}_${imageFile.name}`);
+      const snapshot = await uploadBytes(imageRef, imageFile);
+      imageUrl = await getDownloadURL(snapshot.ref);
+    }
+    
     const productRef = doc(collection(db, 'products'));
     const productId = productRef.id;
     
-    await setDoc(productRef, {
+    const productDataToSave = {
       ...productData,
+      imageUrl,
       sellerId,
       productId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
     
-    return { success: true, data: { ...productData, productId } };
+    await setDoc(productRef, productDataToSave);
+    
+    return { success: true, data: { ...productDataToSave } };
   } catch (error) {
     console.error('Error creating product:', error);
     return { success: false, error: error.message };

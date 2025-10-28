@@ -16,7 +16,7 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && 
-        request.resource.data.keys().hasOnly(['name', 'description', 'price', 'category', 'brand', 'condition', 'sellerId', 'imageUrl', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['name', 'description', 'price', 'category', 'brand', 'condition', 'sellerId', 'imageUrl', 'productId', 'createdAt', 'updatedAt']) &&
         request.resource.data.sellerId == request.auth.uid;
       allow update: if request.auth != null && resource.data.sellerId == request.auth.uid;
       allow delete: if request.auth != null && resource.data.sellerId == request.auth.uid;
@@ -52,6 +52,16 @@ service cloud.firestore {
     match /reviews/{reviewId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
+    }
+  }
+}
+
+// Allow file uploads to storage
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /products/{sellerId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == sellerId;
     }
   }
 }

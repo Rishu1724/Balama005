@@ -9,10 +9,24 @@ const ProductForm = ({ onProductAdded }) => {
   const [category, setCategory] = useState('Electronics');
   const [brand, setBrand] = useState('');
   const [condition, setCondition] = useState('New');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { currentUser } = useAuth();
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,10 +47,9 @@ const ProductForm = ({ onProductAdded }) => {
         category,
         brand,
         condition,
-        imageUrl: imageUrl || null,
       };
 
-      const result = await createProduct(productData, currentUser.uid);
+      const result = await createProduct(productData, currentUser.uid, imageFile);
       
       if (result.success) {
         // Reset form
@@ -44,7 +57,10 @@ const ProductForm = ({ onProductAdded }) => {
         setDescription('');
         setPrice('');
         setBrand('');
-        setImageUrl('');
+        setCategory('Electronics');
+        setCondition('New');
+        setImageFile(null);
+        setImagePreview(null);
         
         // Notify parent component
         if (onProductAdded) {
@@ -173,17 +189,33 @@ const ProductForm = ({ onProductAdded }) => {
         </div>
         
         <div>
-          <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
-            Image URL (optional)
+          <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+            Product Image
           </label>
-          <input
-            type="url"
-            id="imageUrl"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="https://example.com/image.jpg"
-          />
+          <div className="mt-1 flex items-center">
+            <input
+              type="file"
+              id="image"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+            />
+          </div>
+          
+          {imagePreview && (
+            <div className="mt-2">
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                className="h-32 w-32 object-cover rounded-md"
+              />
+            </div>
+          )}
         </div>
         
         <div className="flex justify-end">
