@@ -1,0 +1,31 @@
+{
+  "name": "aura-marketplace-server",
+  "version": "1.0.0",
+  "description": "Backend for AURA Unified Marketplace",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "firebase",
+    "marketplace"
+  ],
+  "author": "AURA Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "firebase-admin": "^11.8.0",
+    "axios": "^1.4.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
